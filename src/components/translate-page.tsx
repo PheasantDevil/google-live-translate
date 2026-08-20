@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { AudioLevelMeter } from "@/components/audio-level-meter";
 import { LanguageSelector } from "@/components/language-selector";
+import { OutputDeviceSelector } from "@/components/output-device-selector";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { SessionControls } from "@/components/session-controls";
+import { SessionStatsPanel } from "@/components/session-stats-panel";
 import { StatusIndicator } from "@/components/status-indicator";
 import { SubtitlePanel } from "@/components/subtitle-panel";
 import { useTranslate } from "@/context/translate-context";
@@ -12,11 +15,14 @@ export function TranslatePage() {
   const {
     status,
     targetLanguage,
+    outputDeviceId,
     subtitles,
     audioLevel,
     error,
+    sessionStats,
     isActive,
     setTargetLanguage,
+    setOutputDevice,
     startSession,
     stopSession,
     pauseSession,
@@ -39,9 +45,19 @@ export function TranslatePage() {
       </header>
 
       <section className="flex flex-1 flex-col gap-5">
-        <StatusIndicator status={status} />
+        <PwaInstallBanner />
+
+        <StatusIndicator status={status} reconnectCount={sessionStats.reconnectCount} />
 
         <LanguageSelector value={targetLanguage} onChange={setTargetLanguage} disabled={isActive} />
+
+        <OutputDeviceSelector
+          value={outputDeviceId}
+          onChange={(deviceId) => void setOutputDevice(deviceId)}
+          disabled={false}
+        />
+
+        <SessionStatsPanel stats={sessionStats} visible={isActive} />
 
         {isActive && <AudioLevelMeter level={audioLevel} />}
 
@@ -57,8 +73,14 @@ export function TranslatePage() {
         )}
 
         {!isActive && status === "idle" && (
-          <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
-            ヘッドフォンを接続すると周囲に聞こえにくくなります。HTTPS 環境でマイク権限が必要です。
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+              ヘッドフォンを接続し、出力デバイスを選択すると周囲に聞こえにくくなります。HTTPS
+              環境でマイク権限が必要です。
+            </div>
+            <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+              長時間利用時は自動再接続されます。iOS ではタブを前面に保つと安定します。
+            </div>
           </div>
         )}
       </section>

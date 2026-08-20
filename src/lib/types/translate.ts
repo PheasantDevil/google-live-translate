@@ -13,20 +13,30 @@ export interface AppError {
   message: string;
 }
 
+export interface SessionStats {
+  reconnectCount: number;
+  subtitleCount: number;
+  sessionDurationMs: number;
+}
+
 export interface TranslateState {
   status: SessionStatus;
   targetLanguage: string;
+  outputDeviceId: string;
   subtitles: SubtitleLine[];
   audioLevel: number;
   error: AppError | null;
   sessionStartedAt: number | null;
+  sessionStats: SessionStats;
 }
 
 export type TranslateAction =
   | { type: "SET_STATUS"; status: SessionStatus }
   | { type: "SET_TARGET_LANGUAGE"; targetLanguage: string }
+  | { type: "SET_OUTPUT_DEVICE"; outputDeviceId: string }
   | { type: "SET_AUDIO_LEVEL"; audioLevel: number }
   | { type: "SET_ERROR"; error: AppError | null }
+  | { type: "SET_SESSION_STATS"; sessionStats: Partial<SessionStats> }
   | { type: "ADD_SUBTITLE"; line: SubtitleLine }
   | { type: "UPDATE_SUBTITLE"; id: string; text: string; isFinal: boolean }
   | { type: "CLEAR_SUBTITLES" }
@@ -37,10 +47,16 @@ export type TranslateAction =
 export const initialTranslateState: TranslateState = {
   status: "idle",
   targetLanguage: "ja",
+  outputDeviceId: "default",
   subtitles: [],
   audioLevel: 0,
   error: null,
   sessionStartedAt: null,
+  sessionStats: {
+    reconnectCount: 0,
+    subtitleCount: 0,
+    sessionDurationMs: 0,
+  },
 };
 
 export function translateReducer(state: TranslateState, action: TranslateAction): TranslateState {
@@ -49,10 +65,17 @@ export function translateReducer(state: TranslateState, action: TranslateAction)
       return { ...state, status: action.status };
     case "SET_TARGET_LANGUAGE":
       return { ...state, targetLanguage: action.targetLanguage };
+    case "SET_OUTPUT_DEVICE":
+      return { ...state, outputDeviceId: action.outputDeviceId };
     case "SET_AUDIO_LEVEL":
       return { ...state, audioLevel: action.audioLevel };
     case "SET_ERROR":
       return { ...state, error: action.error, status: action.error ? "error" : state.status };
+    case "SET_SESSION_STATS":
+      return {
+        ...state,
+        sessionStats: { ...state.sessionStats, ...action.sessionStats },
+      };
     case "ADD_SUBTITLE":
       return {
         ...state,
@@ -72,6 +95,11 @@ export function translateReducer(state: TranslateState, action: TranslateAction)
         sessionStartedAt: Date.now(),
         error: null,
         subtitles: [],
+        sessionStats: {
+          reconnectCount: 0,
+          subtitleCount: 0,
+          sessionDurationMs: 0,
+        },
       };
     case "SESSION_STOPPED":
       return {
@@ -79,6 +107,11 @@ export function translateReducer(state: TranslateState, action: TranslateAction)
         status: "idle",
         sessionStartedAt: null,
         audioLevel: 0,
+        sessionStats: {
+          reconnectCount: 0,
+          subtitleCount: 0,
+          sessionDurationMs: 0,
+        },
       };
     case "RESET":
       return { ...initialTranslateState, targetLanguage: state.targetLanguage };

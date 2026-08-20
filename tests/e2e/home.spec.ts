@@ -7,6 +7,7 @@ test.describe("Live Translate UI", () => {
     await expect(page.getByRole("heading", { name: "Live Translate" })).toBeVisible();
     await expect(page.getByRole("button", { name: "翻訳を開始" })).toBeVisible();
     await expect(page.getByText("翻訳先の言語")).toBeVisible();
+    await expect(page.getByText("出力デバイス").first()).toBeVisible();
     await expect(page.getByText("待機中")).toBeVisible();
   });
 

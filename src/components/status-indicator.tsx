@@ -24,9 +24,10 @@ const STATUS_COLORS: Record<SessionStatus, string> = {
 
 interface StatusIndicatorProps {
   status: SessionStatus;
+  reconnectCount?: number;
 }
 
-export function StatusIndicator({ status }: StatusIndicatorProps) {
+export function StatusIndicator({ status, reconnectCount = 0 }: StatusIndicatorProps) {
   const isLive = status === "translating" || status === "reconnecting";
 
   return (
@@ -38,6 +39,9 @@ export function StatusIndicator({ status }: StatusIndicatorProps) {
       <div>
         <p className="text-sm font-medium">{STATUS_LABELS[status]}</p>
         {isLive && <p className="text-xs text-muted">マイクに向かって話してください</p>}
+        {status === "reconnecting" && reconnectCount > 0 && (
+          <p className="text-xs text-muted">再接続 {reconnectCount} 回目</p>
+        )}
       </div>
     </div>
   );

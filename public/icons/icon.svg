@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Live Translate">
+  <rect width="512" height="512" rx="112" fill="#0f1419"/>
+  <circle cx="256" cy="256" r="148" fill="#4285f4" opacity="0.18"/>
+  <path fill="#4285f4" d="M176 220h160v24H176zm0 56h112v24H176z"/>
+  <path fill="#34a853" d="M256 128c-70.7 0-128 57.3-128 128s57.3 128 128 128 128-57.3 128-128-57.3-128-128-128zm0 224c-53 0-96-43-96-96s43-96 96-96 96 43 96 96-43 96-96 96z"/>
+  <path fill="#e8edf4" d="M236 196h40v120h-40z"/>
+</svg>
