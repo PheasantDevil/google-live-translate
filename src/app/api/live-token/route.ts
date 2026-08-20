@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality, type LiveConnectConfig } from "@google/genai/node";
 import { NextRequest, NextResponse } from "next/server";
+import { API_ERROR_CODES, createApiError } from "@/lib/api/errors";
 import {
   DEFAULT_TARGET_LANGUAGE,
   GEMINI_LIVE_TRANSLATE_MODEL,
@@ -13,10 +14,8 @@ function getApiKey(): string {
 export async function POST(request: NextRequest) {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY_SERVER が設定されていません" },
-      { status: 500 },
-    );
+    console.error("[live-token] GEMINI_API_KEY_SERVER is not configured");
+    return createApiError(API_ERROR_CODES.SERVICE_UNAVAILABLE, 503);
   }
 
   let targetLanguage = DEFAULT_TARGET_LANGUAGE;
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as { targetLanguage?: string };
     if (body.targetLanguage) {
       if (!isSupportedLanguage(body.targetLanguage)) {
-        return NextResponse.json({ error: "サポートされていない言語コードです" }, { status: 400 });
+        return createApiError(API_ERROR_CODES.INVALID_LANGUAGE, 400);
       }
       targetLanguage = body.targetLanguage;
     }
@@ -59,7 +58,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!token.name) {
-      return NextResponse.json({ error: "トークンの生成に失敗しました" }, { status: 500 });
+      console.error("[live-token] Token response did not include a name");
+      return createApiError(API_ERROR_CODES.TOKEN_FAILED, 500);
     }
 
     return NextResponse.json({
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       expiresAt: expireTime,
     });
   } catch (error) {
-    console.error("Failed to create ephemeral token:", error);
-    return NextResponse.json({ error: "トークンの生成に失敗しました" }, { status: 500 });
+    console.error("[live-token] Failed to create ephemeral token:", error);
+    return createApiError(API_ERROR_CODES.TOKEN_FAILED, 500);
   }
 }
