@@ -1,9 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "echo 'No install required for design phase'",
-  "buildCommand": "echo 'No build required for design phase'",
-  "outputDirectory": ".",
+  "framework": "nextjs",
   "regions": ["hnd1"],
   "headers": [
     {
