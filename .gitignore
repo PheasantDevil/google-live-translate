@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# OS & IDE
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Testing
+coverage/
+playwright-report/
+test-results/

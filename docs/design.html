@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>google-live-translate — 実装設計書 v0.1</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-2: #243044;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #4285f4;
+      --accent-2: #34a853;
+      --warn: #fbbc04;
+      --danger: #ea4335;
+      --border: #2d3a4f;
+      --code-bg: #0d1117;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      font-size: 16px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    nav {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    nav h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 1.5rem 0 0.5rem; }
+    nav h2:first-child { margin-top: 0; }
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    nav a:hover { background: var(--surface-2); color: var(--text); }
+    main { flex: 1; max-width: 920px; padding: 2.5rem 3rem 4rem; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    .meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 2.5rem; }
+    h2 { font-size: 1.5rem; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.15rem; margin: 1.75rem 0 0.75rem; color: #c5d4ea; }
+    h4 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
+    p, li { margin-bottom: 0.6rem; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    .badge {
+      display: inline-block;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.15rem 0.65rem;
+      font-size: 0.78rem;
+      margin-right: 0.35rem;
+      color: var(--muted);
+    }
+    .badge.accent { background: rgba(66,133,244,0.15); border-color: var(--accent); color: #8ab4f8; }
+    .badge.ok { background: rgba(52,168,83,0.15); border-color: var(--accent-2); color: #81c995; }
+    .badge.warn { background: rgba(251,188,4,0.12); border-color: var(--warn); color: #fdd663; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.92rem; }
+    th, td { border: 1px solid var(--border); padding: 0.65rem 0.85rem; text-align: left; vertical-align: top; }
+    th { background: var(--surface); color: var(--muted); font-weight: 600; }
+    tr:nth-child(even) td { background: rgba(26,35,50,0.5); }
+    code {
+      font-family: "SF Mono", "Fira Code", monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.88em;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    pre code { background: none; border: none; padding: 0; }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(66,133,244,0.08);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.25rem 0;
+    }
+    .callout.warn { border-color: var(--warn); background: rgba(251,188,4,0.08); }
+    .callout.danger { border-color: var(--danger); background: rgba(234,67,53,0.08); }
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.25rem 0;
+      font-family: monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .card h4 { margin-top: 0; color: var(--text); }
+    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      nav { width: 100%; height: auto; position: static; }
+      main { padding: 1.5rem; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <h2>設計書</h2>
+    <a href="#overview">概要</a>
+    <a href="#requirements">1. 要件定義</a>
+    <a href="#research">2. 技術調査</a>
+    <a href="#architecture">3. アーキテクチャ</a>
+    <a href="#components">4. コンポーネント設計</a>
+    <a href="#data">5. データ・状態管理</a>
+    <a href="#api">6. API 設計</a>
+    <a href="#audio">7. 音声パイプライン</a>
+    <a href="#security">8. セキュリティ</a>
+    <a href="#vercel">9. Vercel 設定</a>
+    <a href="#concerns">10. 懸念・エッジケース</a>
+    <a href="#roadmap">11. 実装ロードマップ</a>
+    <a href="#questions">12. 確認事項</a>
+  </nav>
+
+  <main>
+    <h1>google-live-translate</h1>
+    <p class="meta">
+      <span class="badge accent">v0.1</span>
+      <span class="badge">設計フェーズ</span>
+      作成日: 2026-08-20 &nbsp;|&nbsp; リポジトリ: PheasantDevil/google-live-translate
+    </p>
+
+    <section id="overview">
+      <h2>概要</h2>
+      <p>
+        本プロジェクトは、Google 翻訳アプリの <strong>Live translate（リアルタイム翻訳）</strong> 機能に相当する
+        Web アプリケーションを構築する。ユーザーがマイクで話した内容を、数秒以内の遅延で
+        指定言語の自然な音声に翻訳して再生する。
+      </p>
+      <div class="callout">
+        <strong>スコープ:</strong> Live translate のコア体験（音声入力 → リアルタイム翻訳音声出力）に限定する。
+        テキスト翻訳、カメラ翻訳、会話モードの双方向 UI、オフライン辞書等は <strong>含めない</strong>。
+      </div>
+    </section>
+
+    <section id="requirements">
+      <h2>1. 要件定義</h2>
+
+      <h3>1.1 機能要件（Must Have）</h3>
+      <table>
+        <thead><tr><th>ID</th><th>機能</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td>F-01</td><td>マイク入力</td><td>ブラウザの <code>getUserMedia</code> でマイク音声を取得。権限リクエスト UI を表示。</td></tr>
+          <tr><td>F-02</td><td>リアルタイム翻訳</td><td>入力音声を Gemini Live API（<code>gemini-3.5-live-translate-preview</code>）へストリーミングし、翻訳音声を連続再生。</td></tr>
+          <tr><td>F-03</td><td>翻訳先言語選択</td><td>ユーザーが翻訳先言語（BCP-47）を選択。入力言語はモデルが自動検出（70+ 言語）。</td></tr>
+          <tr><td>F-04</td><td>開始 / 停止</td><td>セッションの開始・一時停止・終了。状態を UI に明示表示。</td></tr>
+          <tr><td>F-05</td><td>音声出力</td><td>翻訳音声をスピーカーまたは接続ヘッドフォンで再生（Google Translate の Listening モード相当）。</td></tr>
+          <tr><td>F-06</td><td>字幕表示（オプション）</td><td>翻訳テキストを画面下部にリアルタイム表示（Google Translate の Text only 相当の簡易版）。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>1.2 機能要件（Should Have — Phase 2）</h3>
+      <ul>
+        <li>出力先切替: スピーカー / ヘッドフォン（<code>setSinkId</code> 対応ブラウザ）</li>
+        <li>音量メーター（入力レベル可視化）</li>
+        <li>セッション再接続（15 分タイムアウト対策）</li>
+        <li>PWA 対応（ホーム画面追加、バックグラウンド継続の検討）</li>
+      </ul>
+
+      <h3>1.3 非機能要件</h3>
+      <table>
+        <thead><tr><th>項目</th><th>目標</th></tr></thead>
+        <tbody>
+          <tr><td>レイテンシ</td><td>話者から 2〜5 秒以内に翻訳音声が開始（Gemini 3.5 Live Translate の仕様に準拠）</td></tr>
+          <tr><td>対応ブラウザ</td><td>Chrome / Edge 最新、Safari 17+（WebSocket + AudioWorklet 対応）</td></tr>
+          <tr><td>モバイル</td><td>iOS Safari / Android Chrome で動作（HTTPS 必須）</td></tr>
+          <tr><td>可用性</td><td>セッション切断時にユーザーへ通知し、手動または自動再接続</td></tr>
+          <tr><td>セキュリティ</td><td>API キーをクライアントに露出しない（Ephemeral Token パターン）</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="research">
+      <h2>2. 技術調査</h2>
+
+      <h3>2.1 Google 翻訳 Live translate の技術基盤</h3>
+      <p>
+        Google 翻訳アプリの Live translate は <strong>Gemini 3.5 Live Translate</strong> モデルを使用。
+        従来の ASR → 機械翻訳 → TTS パイプラインではなく、
+        <strong>音声入力 → 音声出力の End-to-End ストリーミング</strong> により低遅延を実現している。
+      </p>
+      <ul>
+        <li>70+ 言語の自動検出</li>
+        <li>話者のイントネーション・ペーシングを保持した自然な翻訳音声</li>
+        <li>ターン待ちではなく連続ストリーミング（同時通訳型）</li>
+        <li>ノイズ耐性（騒がしい環境でも動作）</li>
+      </ul>
+
+      <h3>2.2 開発者向け API 選定</h3>
+      <table>
+        <thead><tr><th>方式</th><th>概要</th><th>評価</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Gemini Live API</strong><br><code>gemini-3.5-live-translate-preview</code></td>
+            <td>WebSocket による音声ストリーミング。<code>translationConfig</code> で翻訳先言語を指定。Google Translate と同一技術。</td>
+            <td><span class="badge ok">採用</span></td>
+          </tr>
+          <tr>
+            <td>Cloud STT + Translation + TTS</td>
+            <td>3 段パイプライン。レイテンシ大、プロソディ再現が困難。</td>
+            <td><span class="badge">不採用</span></td>
+          </tr>
+          <tr>
+            <td>Web Speech API + Cloud Translation</td>
+            <td>テキストベース。音声→音声の Live translate 体験と乖離。</td>
+            <td><span class="badge">不採用</span></td>
+          </tr>
+          <tr>
+            <td>Google Translate Widget / 非公式 API</td>
+            <td>Live translate 非対応。利用規約リスク。</td>
+            <td><span class="badge">不採用</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2.3 Gemini Live API — 音声フォーマット仕様</h3>
+      <table>
+        <thead><tr><th>方向</th><th>フォーマット</th><th>備考</th></tr></thead>
+        <tbody>
+          <tr><td>入力</td><td>Raw 16-bit PCM, 16 kHz, mono, little-endian</td><td>100ms チャンク推奨</td></tr>
+          <tr><td>出力</td><td>Raw 16-bit PCM, 24 kHz, mono, little-endian</td><td>Web Audio API で再生</td></tr>
+          <tr><td>入力種別</td><td>音声のみ</td><td>翻訳モードではテキスト入力非対応</td></tr>
+        </tbody>
+      </table>
+
+      <h3>2.4 translationConfig</h3>
+      <pre><code>{
+  "generationConfig": {
+    "translationConfig": {
+      "targetLanguageCode": "ja",
+      "echoTargetLanguage": false
+    }
+  }
+}</code></pre>
+      <ul>
+        <li><code>targetLanguageCode</code>: 翻訳先言語（BCP-47）。例: <code>ja</code>, <code>en</code>, <code>es</code></li>
+        <li><code>echoTargetLanguage</code>: <code>true</code> なら入力が既に翻訳先言語の場合エコー。Live translate では通常 <code>false</code>。</li>
+      </ul>
+
+      <h3>2.5 参考実装</h3>
+      <ul>
+        <li><a href="https://ai.google.dev/gemini-api/docs/live-api/live-translate" style="color:#8ab4f8">Gemini Live API — Live Translation 公式ドキュメント</a></li>
+        <li><a href="https://github.com/Dani-aw/gemini-live-translator" style="color:#8ab4f8">gemini-live-translator（Simultaneous translation モード）</a></li>
+        <li>Google Cloud Blog: Building a Real-Time Audio Translator with Gemini Live API</li>
+      </ul>
+    </section>
+
+    <section id="architecture">
+      <h2>3. アーキテクチャ</h2>
+
+      <div class="diagram">┌─────────────────────────────────────────────────────────────────┐
+│                        Browser (Client)                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
+│  │ Microphone   │→ │ AudioCapture │→ │ GeminiLiveClient (WS)    │ │
+│  │ (getUserMedia)│  │ 16kHz PCM    │  │ v1alpha endpoint       │ │
+│  └──────────────┘  └──────────────┘  └───────────┬────────────┘ │
+│                                                   │               │
+│  ┌──────────────┐  ┌──────────────┐              │ 24kHz PCM     │
+│  │ Speaker /    │← │ AudioPlayback│←─────────────┘               │
+│  │ Headphones   │  │ Web Audio API│                              │
+│  └──────────────┘  └──────────────┘                              │
+│  ┌──────────────────────────────────────────────────────────────┐│
+│  │ TranslateUI (React) — 言語選択 / 開始停止 / 字幕 / 状態表示   ││
+│  └──────────────────────────────────────────────────────────────┘│
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ HTTPS (Ephemeral Token 取得)
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   Next.js on Vercel (Server)                     │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ POST /api/live-token                                         ││
+│  │  - GEMINI_API_KEY で Ephemeral Token を発行                  ││
+│  │  - translationConfig をサーバー側でロック（改ざん防止）       ││
+│  └─────────────────────────────────────────────────────────────┘│
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ WSS (Ephemeral Token 認証)
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              Google Gemini Live API (v1alpha)                    │
+│              Model: gemini-3.5-live-translate-preview            │
+└─────────────────────────────────────────────────────────────────┘</div>
+
+      <h3>3.1 技術スタック</h3>
+      <table>
+        <thead><tr><th>レイヤ</th><th>技術</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>Framework</td><td>Next.js 16 (App Router)</td><td>Vercel 最適化、Route Handler でトークン発行</td></tr>
+          <tr><td>Language</td><td>TypeScript</td><td>型安全、Audio/WebSocket 処理の保守性</td></tr>
+          <tr><td>UI</td><td>React + Tailwind CSS + shadcn/ui</td><td>迅速な UI 構築、Google Material 風デザイン</td></tr>
+          <tr><td>Audio</td><td>Web Audio API + AudioWorklet</td><td>低遅延 PCM 変換・再生</td></tr>
+          <tr><td>Realtime</td><td>WebSocket (Gemini Live SDK)</td><td>双方向ストリーミング</td></tr>
+          <tr><td>Deploy</td><td>Vercel (hnd1 リージョン)</td><td>日本向け低レイテンシ</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="components">
+      <h2>4. コンポーネント設計</h2>
+
+      <h3>4.1 ページ構成</h3>
+      <table>
+        <thead><tr><th>Route</th><th>コンポーネント</th><th>役割</th></tr></thead>
+        <tbody>
+          <tr><td><code>/</code></td><td><code>TranslatePage</code></td><td>メイン翻訳画面（単一ページアプリ）</td></tr>
+          <tr><td><code>/docs/design.html</code></td><td>静的 HTML</td><td>本設計書（Git 管理）</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 UI コンポーネント</h3>
+
+      <div class="grid-2">
+        <div class="card">
+          <h4>TranslatePage</h4>
+          <p><strong>Props:</strong> なし（ページルート）</p>
+          <p><strong>State:</strong> なし（子コンポーネントへ Context 提供）</p>
+          <p>全体レイアウト。TranslateProvider で状態をラップ。</p>
+        </div>
+        <div class="card">
+          <h4>LanguageSelector</h4>
+          <p><strong>Props:</strong> <code>value: string</code>, <code>onChange: (code) =&gt; void</code>, <code>disabled?: boolean</code></p>
+          <p><strong>State:</strong> なし</p>
+          <p>翻訳先言語のドロップダウン（70+ 言語リスト）。</p>
+        </div>
+        <div class="card">
+          <h4>SessionControls</h4>
+          <p><strong>Props:</strong> <code>status</code>, <code>onStart</code>, <code>onStop</code>, <code>onPause</code></p>
+          <p><strong>State:</strong> なし</p>
+          <p>開始 / 停止 / 一時停止ボタン。マイク権限未許可時はガイダンス表示。</p>
+        </div>
+        <div class="card">
+          <h4>StatusIndicator</h4>
+          <p><strong>Props:</strong> <code>status: SessionStatus</code>, <code>latencyMs?: number</code></p>
+          <p><strong>State:</strong> なし</p>
+          <p>接続中 / 翻訳中 / エラー / 再接続中 の視覚フィードバック。</p>
+        </div>
+        <div class="card">
+          <h4>SubtitlePanel</h4>
+          <p><strong>Props:</strong> <code>lines: SubtitleLine[]</code>, <code>visible: boolean</code></p>
+          <p><strong>State:</strong> なし</p>
+          <p>翻訳テキストのスクロール表示（最新 5 行程度）。</p>
+        </div>
+        <div class="card">
+          <h4>AudioLevelMeter</h4>
+          <p><strong>Props:</strong> <code>level: number</code> (0–1)</p>
+          <p><strong>State:</strong> なし</p>
+          <p>入力音量のビジュアライザ（Phase 2）。</p>
+        </div>
+      </div>
+
+      <h3>4.3 非 UI モジュール（lib/）</h3>
+      <table>
+        <thead><tr><th>モジュール</th><th>責務</th></tr></thead>
+        <tbody>
+          <tr><td><code>lib/audio/capture.ts</code></td><td>マイク取得、リサンプリング（→ 16kHz PCM）、100ms チャンク分割</td></tr>
+          <tr><td><code>lib/audio/playback.ts</code></td><td>24kHz PCM バッファリング、ギャップレス再生、割り込み（barge-in）処理</td></tr>
+          <tr><td><code>lib/gemini/live-client.ts</code></td><td>WebSocket 接続管理、メッセージ送受信、GoAway ハンドリング</td></tr>
+          <tr><td><code>lib/gemini/token.ts</code></td><td><code>/api/live-token</code> 呼び出し、Ephemeral Token 取得</td></tr>
+          <tr><td><code>lib/gemini/session-manager.ts</code></td><td>セッションライフサイクル（開始・15分再接続・エラー復旧）</td></tr>
+          <tr><td><code>lib/constants/languages.ts</code></td><td>対応言語リスト（BCP-47 コード + 表示名）</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="data">
+      <h2>5. データ設計・状態管理</h2>
+
+      <h3>5.1 状態管理方針</h3>
+      <p>
+        React Context + <code>useReducer</code> による軽量状態管理。
+        外部ストア（Redux 等）は不要。音声処理は Ref ベースの imperative モジュールと連携。
+      </p>
+
+      <h3>5.2 主要 State 型</h3>
+      <pre><code>type SessionStatus =
+  | "idle"           // 未開始
+  | "requesting_mic" // マイク権限要求中
+  | "connecting"     // WebSocket 接続中
+  | "translating"    // 翻訳中
+  | "paused"         // 一時停止
+  | "reconnecting"   // セッション再接続中
+  | "error";         // エラー
+
+interface TranslateState {
+  status: SessionStatus;
+  targetLanguage: string;       // BCP-47, e.g. "ja"
+  subtitles: SubtitleLine[];
+  audioLevel: number;           // 0–1
+  error: AppError | null;
+  sessionStartedAt: number | null;
+}
+
+interface SubtitleLine {
+  id: string;
+  text: string;
+  timestamp: number;
+  isFinal: boolean;
+}</code></pre>
+
+      <h3>5.3 永続化</h3>
+      <ul>
+        <li><code>localStorage</code>: 最後に選択した翻訳先言語のみ保存</li>
+        <li>音声データ・翻訳履歴はサーバーに保存しない（プライバシー配慮）</li>
+      </ul>
+
+      <h3>5.4 サーバー側データ</h3>
+      <p>ステートレス。DB 不要。Route Handler は Ephemeral Token 発行のみ。</p>
+    </section>
+
+    <section id="api">
+      <h2>6. API 設計</h2>
+
+      <h3>6.1 POST /api/live-token</h3>
+      <p>クライアント向け Ephemeral Token を発行する。</p>
+      <table>
+        <thead><tr><th>項目</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>Request Body</td><td><code>{ "targetLanguage": "ja" }</code></td></tr>
+          <tr><td>Response 200</td><td><code>{ "token": "...", "expiresAt": "ISO8601" }</code></td></tr>
+          <tr><td>Response 400</td><td>無効な言語コード</td></tr>
+          <tr><td>Response 500</td><td>API キー未設定 / Google API エラー</td></tr>
+          <tr><td>Rate Limit</td><td>IP あたり 10 req/min（Vercel Edge Middleware または Upstash Redis）</td></tr>
+        </tbody>
+      </table>
+
+      <h3>6.2 Gemini Live WebSocket フロー</h3>
+      <ol>
+        <li>クライアントが <code>/api/live-token</code> からトークン取得</li>
+        <li><code>wss://generativelanguage.googleapis.com/ws/.../BidiGenerateContent</code> に接続（v1alpha）</li>
+        <li>Setup メッセージ送信（model + translationConfig）</li>
+        <li>100ms ごとに PCM チャンクを <code>realtimeInput.mediaChunks</code> で送信</li>
+        <li>サーバーから翻訳音声 PCM + テキスト transcript を受信</li>
+        <li>GoAway 受信時 → 新トークン取得 → シームレス再接続</li>
+      </ol>
+    </section>
+
+    <section id="audio">
+      <h2>7. 音声パイプライン詳細</h2>
+
+      <h3>7.1 キャプチャフロー</h3>
+      <pre><code>getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+  → AudioContext (sampleRate: 48000)
+  → AudioWorklet (resample to 16kHz)
+  → Int16Array PCM buffer
+  → Base64 encode → WebSocket send (every 100ms)</code></pre>
+
+      <h3>7.2 再生フロー</h3>
+      <pre><code>WebSocket receive (24kHz PCM base64)
+  → decode → Float32Array
+  → AudioBufferQueue (scheduled playback)
+  → AudioContext.destination (speaker)</code></pre>
+
+      <h3>7.3 バッファリング戦略</h3>
+      <ul>
+        <li>初期バッファ: 200ms 分蓄積後に再生開始（ジッター吸収）</li>
+        <li>最大バッファ: 2 秒（遅延が増えすぎたら古いチャンクをドロップ）</li>
+        <li>Barge-in: ユーザーが話し始めたら再生キューをフラッシュ</li>
+      </ul>
+    </section>
+
+    <section id="security">
+      <h2>8. セキュリティ</h2>
+      <table>
+        <thead><tr><th>脅威</th><th>対策</th></tr></thead>
+        <tbody>
+          <tr><td>API キー露出</td><td>Ephemeral Token パターン。キーは Vercel 環境変数のみ。</td></tr>
+          <tr><td>translationConfig 改ざん</td><td>サーバー側トークン発行時に <code>targetLanguage</code> をロック</td></tr>
+          <tr><td>Token 乱用</td><td>Rate limiting、Token 有効期限（数分）、CORS 制限</td></tr>
+          <tr><td>マイク権限</td><td>HTTPS 必須（Vercel デフォルト）、Permissions-Policy ヘッダー</td></tr>
+          <tr><td>音声データ</td><td>サーバー経由で保存しない。Google API 送信のみ。</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <strong>注意:</strong> Gemini API の利用規約および SynthID 透かし（生成音声への AI 透かし）に準拠すること。
+        商用利用時は Google Cloud / AI Studio の料金体系を確認すること。
+      </div>
+    </section>
+
+    <section id="vercel">
+      <h2>9. Vercel 初期設定</h2>
+
+      <h3>9.1 プロジェクト設定</h3>
+      <table>
+        <thead><tr><th>項目</th><th>値</th></tr></thead>
+        <tbody>
+          <tr><td>Framework Preset</td><td>Next.js</td></tr>
+          <tr><td>Root Directory</td><td><code>/</code></td></tr>
+          <tr><td>Build Command</td><td><code>npm run build</code></td></tr>
+          <tr><td>Node.js Version</td><td>20.x</td></tr>
+          <tr><td>Region</td><td><code>hnd1</code>（東京）</td></tr>
+          <tr><td>Git Integration</td><td>PheasantDevil/google-live-translate</td></tr>
+        </tbody>
+      </table>
+
+      <h3>9.2 環境変数（Vercel Dashboard）</h3>
+      <table>
+        <thead><tr><th>変数</th><th>Environment</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td><code>GEMINI_API_KEY_SERVER</code></td><td>Production, Preview</td><td>Google AI Studio API キー</td></tr>
+          <tr><td><code>DEFAULT_TARGET_LANGUAGE</code></td><td>All</td><td>デフォルト翻訳先（例: <code>ja</code>）</td></tr>
+        </tbody>
+      </table>
+
+      <h3>9.3 vercel.json</h3>
+      <pre><code>{
+  "framework": "nextjs",
+  "regions": ["hnd1"],
+  "headers": [{
+    "source": "/(.*)",
+    "headers": [{ "key": "Permissions-Policy", "value": "microphone=(self)" }]
+  }]
+}</code></pre>
+
+      <h3>9.4 デプロイフロー</h3>
+      <ol>
+        <li><code>main</code> ブランチ push → Production 自動デプロイ</li>
+        <li>Feature ブランチ push → Preview デプロイ</li>
+        <li>環境変数は Preview / Production で同一キーを使用（開発用は別キー推奨）</li>
+      </ol>
+    </section>
+
+    <section id="concerns">
+      <h2>10. 懸念事項・エッジケース</h2>
+
+      <h3>10.1 技術的懸念</h3>
+      <table>
+        <thead><tr><th>懸念</th><th>影響</th><th>対策</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>セッション 15 分制限</td>
+            <td>長時間利用で切断</td>
+            <td>GoAway メッセージ監視 → 30 秒前に新セッション確立 → クロスフェード再接続</td>
+          </tr>
+          <tr>
+            <td>ブラウザ AudioWorklet 非対応</td>
+            <td>古いブラウザで動作不可</td>
+            <td>対応ブラウザチェック + フォールバックメッセージ表示</td>
+          </tr>
+          <tr>
+            <td>iOS Safari バックグラウンド</td>
+            <td>タブ非アクティブでマイク停止</td>
+            <td>Phase 1 では警告表示。Phase 2 で PWA + Wake Lock 検討</td>
+          </tr>
+          <tr>
+            <td>API コスト</td>
+            <td>従量課金</td>
+            <td>Rate limit、セッション時間上限（任意）、利用量モニタリング</td>
+          </tr>
+          <tr>
+            <td>v1alpha API 変更</td>
+            <td>破壊的変更リスク</td>
+            <td>SDK バージョン固定、Preview モデル変更の監視</td>
+          </tr>
+          <tr>
+            <td>ネットワーク不安定</td>
+            <td>音声途切れ</td>
+            <td>指数バックオフ再接続、UI で状態通知</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>10.2 UX エッジケース</h3>
+      <ul>
+        <li>マイク権限拒否 → 設定手順ガイドを表示</li>
+        <li>入力言語 = 翻訳先言語 → モデルは無音（<code>echoTargetLanguage: false</code>）</li>
+        <li>無音状態が続く → 「話してください」プロンプト（5 秒後）</li>
+        <li>ヘッドフォン未接続 → スピーカー出力（周囲に聞こえる旨を通知）</li>
+        <li>複数タブで同時起動 → 先勝ち、後からは「他タブで使用中」表示</li>
+      </ul>
+
+      <h3>10.3 パフォーマンス目標</h3>
+      <table>
+        <thead><tr><th>指標</th><th>目標</th></tr></thead>
+        <tbody>
+          <tr><td>First Contentful Paint</td><td>&lt; 1.5s</td></tr>
+          <tr><td>セッション開始〜初翻訳音声</td><td>&lt; 5s</td></tr>
+          <tr><td>JS バンドル（初回）</td><td>&lt; 200KB gzip</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="roadmap">
+      <h2>11. 実装ロードマップ</h2>
+
+      <h3>Phase 0 — 基盤（本 PR）</h3>
+      <ul>
+        <li>✅ GitHub リポジトリ作成</li>
+        <li>✅ Vercel プロジェクトリンク</li>
+        <li>✅ 設計書（本 HTML）作成</li>
+      </ul>
+
+      <h3>Phase 1 — MVP（2〜3 週間想定）</h3>
+      <ol>
+        <li>Next.js プロジェクト scaffold（TypeScript, Tailwind, ESLint, Prettier）</li>
+        <li>Ephemeral Token Route Handler 実装</li>
+        <li>Audio capture / playback モジュール</li>
+        <li>Gemini Live Client + Session Manager</li>
+        <li>Translate UI（言語選択、開始/停止、字幕）</li>
+        <li>E2E テスト（Playwright — マイクモック）</li>
+        <li>Production デプロイ</li>
+      </ol>
+
+      <h3>Phase 2 — 改善</h3>
+      <ul>
+        <li>セッション自動再接続（15 分対策）</li>
+        <li>出力デバイス選択</li>
+        <li>音量メーター</li>
+        <li>PWA 対応</li>
+        <li>利用量ダッシュボード</li>
+      </ul>
+    </section>
+
+    <section id="questions">
+      <h2>12. 確認事項（実装前に決定）</h2>
+      <table>
+        <thead><tr><th>#</th><th>質問</th><th>デフォルト案</th></tr></thead>
+        <tbody>
+          <tr><td>Q1</td><td>デフォルト翻訳先言語は？</td><td>日本語 (<code>ja</code>)</td></tr>
+          <tr><td>Q2</td><td>字幕表示は Phase 1 に含める？</td><td>含める（シンプルなテキスト表示）</td></tr>
+          <tr><td>Q3</td><td>認証（ログイン）は必要？</td><td>不要（公開 Web アプリ）</td></tr>
+          <tr><td>Q4</td><td>Google AI Studio キーは誰が発行・管理？</td><td>プロジェクトオーナーが Vercel env に設定</td></tr>
+          <tr><td>Q5</td><td>デザインは Google Translate に似せる？</td><td>Material Design 3 ベースで類似 UI</td></tr>
+          <tr><td>Q6</td><td>モバイルファースト？</td><td>はい（Live translate の主用途はモバイル）</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>次のステップ:</strong> 本設計書をレビューいただき、
+        「設計に同意します。実装を開始してください」とご指示いただければ Phase 1 の実装に着手します。
+      </div>
+    </section>
+
+    <footer>
+      <p>google-live-translate 実装設計書 v0.1 — PheasantDevil — 2026-08-20</p>
+      <p>参照: Gemini Live API, Google Translate Live translate, gemini-3.5-live-translate-preview</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
