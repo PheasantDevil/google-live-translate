@@ -9,6 +9,11 @@ export interface LiveClientCallbacks {
   onSubtitle?: (line: SubtitleLine) => void;
   onAudio?: (pcm: Int16Array) => void;
   onGoAway?: (timeLeft?: string) => void;
+  onResumptionUpdate?: (handle?: string, resumable?: boolean) => void;
+}
+
+export interface LiveConnectOptions {
+  resumptionHandle?: string;
 }
 
 function pcmToBase64(pcm: Int16Array): string {
@@ -33,8 +38,17 @@ export class GeminiLiveClient {
   private session: Session | null = null;
   private ai: GoogleGenAI | null = null;
   private pendingSubtitleId: string | null = null;
+  private resumptionHandle: string | undefined;
 
-  async connect(ephemeralToken: string, callbacks: LiveClientCallbacks): Promise<void> {
+  getResumptionHandle(): string | undefined {
+    return this.resumptionHandle;
+  }
+
+  async connect(
+    ephemeralToken: string,
+    callbacks: LiveClientCallbacks,
+    options: LiveConnectOptions = {},
+  ): Promise<void> {
     this.ai = new GoogleGenAI({
       apiKey: ephemeralToken,
       httpOptions: { apiVersion: "v1alpha" },
@@ -46,6 +60,9 @@ export class GeminiLiveClient {
         responseModalities: [Modality.AUDIO],
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        sessionResumption: options.resumptionHandle
+          ? { handle: options.resumptionHandle, transparent: true }
+          : { transparent: true },
       },
       callbacks: {
         onopen: () => callbacks.onOpen?.(),
@@ -53,33 +70,37 @@ export class GeminiLiveClient {
         onerror: (event) => callbacks.onError?.(new Error(event.message ?? "Live API error")),
         onmessage: (message) => {
           const content = message.serverContent;
-          if (!content) return;
-
-          if (content.inputTranscription?.text) {
-            // Input transcript available for debugging; subtitles use output transcription.
-          }
-
-          if (content.outputTranscription?.text) {
-            const text = content.outputTranscription.text;
-            const id = this.pendingSubtitleId ?? crypto.randomUUID();
-            this.pendingSubtitleId = id;
-            callbacks.onSubtitle?.({
-              id,
-              text,
-              timestamp: Date.now(),
-              isFinal: Boolean(content.turnComplete),
-            });
-            if (content.turnComplete) {
-              this.pendingSubtitleId = null;
-            }
-          }
-
-          if (content.modelTurn?.parts) {
-            for (const part of content.modelTurn.parts) {
-              if (part.inlineData?.data) {
-                callbacks.onAudio?.(base64ToPcm(part.inlineData.data));
+          if (content) {
+            if (content.outputTranscription?.text) {
+              const text = content.outputTranscription.text;
+              const id = this.pendingSubtitleId ?? crypto.randomUUID();
+              this.pendingSubtitleId = id;
+              callbacks.onSubtitle?.({
+                id,
+                text,
+                timestamp: Date.now(),
+                isFinal: Boolean(content.turnComplete),
+              });
+              if (content.turnComplete) {
+                this.pendingSubtitleId = null;
               }
             }
+
+            if (content.modelTurn?.parts) {
+              for (const part of content.modelTurn.parts) {
+                if (part.inlineData?.data) {
+                  callbacks.onAudio?.(base64ToPcm(part.inlineData.data));
+                }
+              }
+            }
+          }
+
+          if (message.sessionResumptionUpdate?.newHandle) {
+            this.resumptionHandle = message.sessionResumptionUpdate.newHandle;
+            callbacks.onResumptionUpdate?.(
+              message.sessionResumptionUpdate.newHandle,
+              message.sessionResumptionUpdate.resumable,
+            );
           }
 
           if (message.goAway) {

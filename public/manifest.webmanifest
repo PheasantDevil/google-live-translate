@@ -3,8 +3,18 @@
   "short_name": "Live Translate",
   "description": "リアルタイム音声翻訳",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0f1419",
   "theme_color": "#0f1419",
-  "lang": "ja"
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

@@ -24,14 +24,14 @@ npm run dev
 
 ## スクリプト
 
-| コマンド | 説明 |
-|---------|------|
-| `npm run dev` | 開発サーバー起動 |
-| `npm run build` | 本番ビルド |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
-| `npm run test` | Playwright E2E |
-| `npm run test:unit` | ユニットテスト |
+| コマンド            | 説明             |
+| ------------------- | ---------------- |
+| `npm run dev`       | 開発サーバー起動 |
+| `npm run build`     | 本番ビルド       |
+| `npm run lint`      | ESLint           |
+| `npm run format`    | Prettier         |
+| `npm run test`      | Playwright E2E   |
+| `npm run test:unit` | ユニットテスト   |
 
 ## 設計書
 
@@ -40,10 +40,10 @@ npm run dev
 
 ## 環境変数
 
-| 変数 | 説明 |
-|------|------|
-| `GEMINI_API_KEY_SERVER` | サーバー専用 API キー（Ephemeral Token 発行） |
-| `DEFAULT_TARGET_LANGUAGE` | デフォルト翻訳先言語（BCP-47、例: `ja`） |
+| 変数                      | 説明                                          |
+| ------------------------- | --------------------------------------------- |
+| `GEMINI_API_KEY_SERVER`   | サーバー専用 API キー（Ephemeral Token 発行） |
+| `DEFAULT_TARGET_LANGUAGE` | デフォルト翻訳先言語（BCP-47、例: `ja`）      |
 
 ## デプロイ
 
